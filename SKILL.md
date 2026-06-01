@@ -1,9 +1,9 @@
 ---
-name: inline-comment-review
+name: annotate-it
 description: Use when a human needs to leave inline comments on a draft you wrote (CV, cover letter, doc, copy, spec, config) and have them flow back to you — instead of pasting feedback by hand. Triggers when the user wants to "comment on", "mark up", "annotate", "review", or "leave notes on" specific lines or phrases of text in a browser.
 ---
 
-# Inline Comment Review
+# Annotate It
 
 ## Overview
 
@@ -24,12 +24,12 @@ Use this instead of asking the user to retype "change line 3, the second bullet 
 1. **Write the draft** to `<workdir>/draft.txt` (pick any workdir, e.g. a temp or project subdir). Plain text. Optional: prefix logical sections with `=== SECTION NAME ===` lines — these get attached to each comment as its `section`.
 2. **Start the server in the background** (it must survive across turns):
    ```bash
-   node ~/.claude/skills/inline-comment-review/server.mjs --dir <workdir>
+   node ~/.claude/skills/annotate-it/server.mjs --dir <workdir>
    ```
    It prints `{"url":"http://localhost:PORT",...}` (also written to `<workdir>/server-info.json`). Use `run_in_background: true`.
 3. **Give the user the URL**, then **launch the waiter in the background and END YOUR TURN**:
    ```bash
-   node ~/.claude/skills/inline-comment-review/wait-for-feedback.mjs --dir <workdir>
+   node ~/.claude/skills/annotate-it/wait-for-feedback.mjs --dir <workdir>
    ```
    Use `run_in_background: true`. This blocks until the user clicks **Send**, then exits — and a background task that exits **auto-resumes you**. No manual "tell me when done" ping. (On timeout it exits with code 2 so you check in.)
 4. **When the waiter exits, you are re-invoked.** Read the **last line** of `<workdir>/feedback.jsonl` — that's their submission.

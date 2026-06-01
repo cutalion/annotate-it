@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Inline Comment Review</title>
+<title>Annotate It</title>
 <style>
   :root{--bg:#f7f7f5;--panel:#fff;--ink:#1f2328;--muted:#6b7280;--border:#e2e2dd;--accent:#2B3A67;--mark:#fff3bf;--mark-active:#ffe066;--danger:#b4232c;--ok:#1f7a4d}
   *{box-sizing:border-box}
@@ -49,7 +49,7 @@
 </head>
 <body>
 <header>
-  <h1>Inline Comment Review</h1>
+  <h1>Annotate It</h1>
   <div class="seg"><button id="mode-edit">Edit draft</button><button id="mode-review" class="active">Review</button></div>
   <span class="count" id="count">0 comments</span>
   <span class="spacer"></span>
@@ -80,7 +80,7 @@
 <script>
 "use strict";
 (function () {
-  const STORE_PREFIX = "inline-comment-review:";
+  const STORE_PREFIX = "annotate-it:";
   const state = { text:"", overall:"", comments:[] };
   let mode = "review", activeId = null, idSeq = 1, pendingNewId = null, storeKey = STORE_PREFIX + "default";
   const $ = (id)=>document.getElementById(id);

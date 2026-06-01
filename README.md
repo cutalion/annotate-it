@@ -1,4 +1,4 @@
-# inline-comment-review
+# annotate-it
 
 A [Claude Code](https://claude.com/claude-code) **skill** that lets a human leave
 inline comments on a draft the agent wrote — by highlighting text in a browser —
@@ -26,10 +26,10 @@ It's a personal skill — drop the folder where your agent looks for skills:
 
 ```bash
 # Claude Code
-git clone <this-repo> ~/.claude/skills/inline-comment-review
+git clone <this-repo> ~/.claude/skills/annotate-it
 
 # or copy an existing checkout
-cp -r inline-comment-review ~/.claude/skills/
+cp -r annotate-it ~/.claude/skills/
 ```
 
 (Codex: `~/.agents/skills/`. Any agent that loads Claude-style skills works.)
@@ -45,7 +45,7 @@ The skill is self-driving once invoked; this is the loop it follows:
    with `=== SECTION NAME ===` lines.
 2. Start the server in the background:
    ```bash
-   node ~/.claude/skills/inline-comment-review/server.mjs --dir <workdir>
+   node ~/.claude/skills/annotate-it/server.mjs --dir <workdir>
    ```
    It prints `{"url":"http://localhost:PORT", ...}` (also in `<workdir>/server-info.json`).
 3. Open the URL, comment, click **Send**.
@@ -58,7 +58,7 @@ After giving you the URL, the agent runs the waiter in the background and ends
 its turn:
 
 ```bash
-node ~/.claude/skills/inline-comment-review/wait-for-feedback.mjs --dir <workdir>
+node ~/.claude/skills/annotate-it/wait-for-feedback.mjs --dir <workdir>
 ```
 
 When you click **Send**, the waiter exits — and a background task exiting is what

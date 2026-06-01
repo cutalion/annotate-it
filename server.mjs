@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Tiny dependency-free server for the inline-comment-review skill.
+// Tiny dependency-free server for the annotate-it skill.
 //
 // Serves review.html, hands the page the current draft, and collects the
 // human's inline comments. No npm install, no WebSocket — just Node's http.

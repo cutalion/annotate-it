@@ -1,0 +1,9 @@
+# Runtime artifacts created when the skill runs in a workdir
+draft.txt
+feedback.jsonl
+server-info.json
+
+# Node / editor noise
+node_modules/
+*.log
+.DS_Store

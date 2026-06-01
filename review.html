@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inline Comment Review</title>
+<style>
+  :root{--bg:#f7f7f5;--panel:#fff;--ink:#1f2328;--muted:#6b7280;--border:#e2e2dd;--accent:#2B3A67;--mark:#fff3bf;--mark-active:#ffe066;--danger:#b4232c;--ok:#1f7a4d}
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5}
+  header h1{font-size:15px;margin:0 8px 0 0;color:var(--accent);font-weight:700}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+  .seg button{border:0;background:var(--panel);padding:6px 14px;cursor:pointer;font:inherit;color:var(--muted)}
+  .seg button.active{background:var(--accent);color:#fff}
+  .spacer{flex:1}
+  .count{color:var(--muted);font-size:13px}
+  button.btn{border:1px solid var(--border);background:var(--panel);border-radius:7px;padding:6px 14px;cursor:pointer;font:inherit;color:var(--ink)}
+  button.btn:hover{border-color:var(--accent)}
+  button.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.btn.ghost-danger{color:var(--danger)}
+  main{display:grid;grid-template-columns:1fr 360px;gap:16px;padding:16px;align-items:start}
+  @media (max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px}
+  .panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 10px}
+  textarea#draft{width:100%;min-height:60vh;border:1px solid var(--border);border-radius:8px;padding:12px;font:14px/1.6 ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:var(--ink);resize:vertical}
+  #rendered{white-space:pre-wrap;word-wrap:break-word;font:14px/1.7 ui-monospace,"SF Mono",Menlo,Consolas,monospace;min-height:60vh}
+  #rendered mark{background:var(--mark);border-radius:3px;padding:0 1px;cursor:pointer}
+  #rendered mark.active{background:var(--mark-active)}
+  .hint{color:var(--muted);font-size:13px;margin-bottom:10px}
+  .overall textarea{width:100%;min-height:52px;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font:inherit;resize:vertical;margin-bottom:14px}
+  ul#comments{list-style:none;margin:0;padding:0}
+  ul#comments li{border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px;cursor:pointer}
+  ul#comments li.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  ul#comments li .quote{font-size:13px;color:var(--muted);border-left:3px solid var(--mark-active);padding-left:8px;margin-bottom:6px;white-space:pre-wrap}
+  ul#comments li .note{white-space:pre-wrap}
+  ul#comments li .note:empty::before{content:"(no comment yet)";color:var(--muted);font-style:italic}
+  .empty{color:var(--muted);font-style:italic}
+  #editor{position:absolute;z-index:20;width:300px;background:var(--panel);border:1px solid var(--accent);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:12px;display:none}
+  #editor .eq{font-size:12px;color:var(--muted);border-left:3px solid var(--mark-active);padding-left:8px;margin-bottom:8px;max-height:64px;overflow:auto;white-space:pre-wrap}
+  #editor textarea{width:100%;min-height:70px;border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit;resize:vertical}
+  #editor .row{display:flex;gap:8px;margin-top:8px}
+  #editor .row .spacer{flex:1}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--accent);color:#fff;padding:9px 16px;border-radius:8px;opacity:0;transition:all .18s ease;pointer-events:none;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.ok{background:var(--ok)}
+  .toast.err{background:var(--danger)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Inline Comment Review</h1>
+  <div class="seg"><button id="mode-edit">Edit draft</button><button id="mode-review" class="active">Review</button></div>
+  <span class="count" id="count">0 comments</span>
+  <span class="spacer"></span>
+  <button class="btn primary" id="send">Send</button>
+  <button class="btn" id="copy">Copy</button>
+  <button class="btn ghost-danger" id="clear">Clear comments</button>
+</header>
+<main>
+  <section class="panel" id="left">
+    <h2 id="left-title">Review</h2>
+    <p class="hint" id="review-hint">Select any text to add a comment. Click a highlight to edit or delete it. When done, click <b>Send</b> and return to the assistant.</p>
+    <textarea id="draft" style="display:none"></textarea>
+    <div id="rendered"></div>
+  </section>
+  <aside class="panel">
+    <h2>Comments</h2>
+    <div class="overall"><textarea id="overall" placeholder="Optional: overall note (sent at the top)"></textarea></div>
+    <ul id="comments"></ul>
+    <p class="empty" id="comments-empty">No comments yet.</p>
+  </aside>
+</main>
+<div id="editor">
+  <div class="eq" id="editor-quote"></div>
+  <textarea id="editor-note" placeholder="Your comment…"></textarea>
+  <div class="row"><button class="btn ghost-danger" id="editor-delete">Delete</button><span class="spacer"></span><button class="btn" id="editor-cancel">Cancel</button><button class="btn primary" id="editor-save">Save</button></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+"use strict";
+(function () {
+  const STORE_PREFIX = "inline-comment-review:";
+  const state = { text:"", overall:"", comments:[] };
+  let mode = "review", activeId = null, idSeq = 1, pendingNewId = null, storeKey = STORE_PREFIX + "default";
+  const $ = (id)=>document.getElementById(id);
+  const draftEl=$("draft"), renderedEl=$("rendered"), commentsEl=$("comments"), commentsEmpty=$("comments-empty"),
+        overallEl=$("overall"), countEl=$("count"), leftTitle=$("left-title"), reviewHint=$("review-hint"),
+        editor=$("editor"), editorQuote=$("editor-quote"), editorNote=$("editor-note");
+
+  // Storage is keyed by a hash of the draft, so a new draft auto-resets comments.
+  function hash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0}return String(h)}
+  function save(){try{localStorage.setItem(storeKey,JSON.stringify({overall:state.overall,comments:state.comments}))}catch(e){}}
+  function loadComments(){try{const r=localStorage.getItem(storeKey);if(!r)return;const d=JSON.parse(r);state.overall=d.overall||"";state.comments=Array.isArray(d.comments)?d.comments:[]}catch(e){}}
+  function nextId(){const m=state.comments.reduce((a,c)=>Math.max(a,c.id||0),0);idSeq=Math.max(idSeq,m+1);return idSeq++}
+
+  function setMode(next){
+    if(next==="review")commitDraft();
+    mode=next;
+    $("mode-edit").classList.toggle("active",mode==="edit");
+    $("mode-review").classList.toggle("active",mode==="review");
+    draftEl.style.display=mode==="edit"?"":"none";
+    renderedEl.style.display=mode==="review"?"":"none";
+    reviewHint.style.display=mode==="review"?"":"none";
+    leftTitle.textContent=mode==="review"?"Review":"Draft";
+    if(mode==="review")renderText();
+    closeEditor();
+  }
+  function commitDraft(){const t=draftEl.value;if(t===state.text)return;state.text=t;storeKey=STORE_PREFIX+hash(t);state.comments=state.comments.filter(c=>state.text.slice(c.start,c.end)===c.quote);save()}
+
+  function renderText(){
+    renderedEl.innerHTML="";
+    const text=state.text, sorted=[...state.comments].sort((a,b)=>a.start-b.start);
+    let cur=0;
+    for(const c of sorted){
+      if(c.start>cur)renderedEl.appendChild(document.createTextNode(text.slice(cur,c.start)));
+      const m=document.createElement("mark");
+      m.textContent=text.slice(c.start,c.end);m.dataset.id=String(c.id);
+      if(c.id===activeId)m.classList.add("active");
+      m.addEventListener("click",e=>{e.stopPropagation();openEditorFor(c.id,m)});
+      renderedEl.appendChild(m);cur=c.end;
+    }
+    if(cur<text.length)renderedEl.appendChild(document.createTextNode(text.slice(cur)));
+  }
+  function offsetOf(container,node,nodeOffset){let t=0;const w=document.createTreeWalker(container,NodeFilter.SHOW_TEXT,null);let n;while((n=w.nextNode())){if(n===node)return t+nodeOffset;t+=n.nodeValue.length}return t}
+  function getSelectionRange(){const s=window.getSelection();if(!s||s.rangeCount===0||s.isCollapsed)return null;const r=s.getRangeAt(0);if(!renderedEl.contains(r.startContainer)||!renderedEl.contains(r.endContainer))return null;let a=offsetOf(renderedEl,r.startContainer,r.startOffset),b=offsetOf(renderedEl,r.endContainer,r.endOffset);if(a>b)[a,b]=[b,a];if(a===b)return null;return{start:a,end:b}}
+  function overlaps(s,e,ex){return state.comments.some(c=>c.id!==ex&&s<c.end&&e>c.start)}
+  function onMouseUp(){if(mode!=="review")return;const r=getSelectionRange();if(!r)return;if(overlaps(r.start,r.end,null)){toast("Selection overlaps an existing comment");window.getSelection().removeAllRanges();return}const c={id:nextId(),start:r.start,end:r.end,quote:state.text.slice(r.start,r.end),note:""};state.comments.push(c);save();window.getSelection().removeAllRanges();renderText();renderComments();pendingNewId=c.id;openEditorFor(c.id,renderedEl.querySelector('mark[data-id="'+c.id+'"]'))}
+
+  function discardPendingNew(){if(pendingNewId==null)return;const c=state.comments.find(x=>x.id===pendingNewId);if(c&&!(c.note&&c.note.trim())){state.comments=state.comments.filter(x=>x.id!==pendingNewId);save()}pendingNewId=null}
+  function openEditorFor(id,anchor){if(pendingNewId!=null&&pendingNewId!==id)discardPendingNew();const c=state.comments.find(x=>x.id===id);if(!c)return;activeId=id;editorQuote.textContent=c.quote;editorNote.value=c.note;editor.style.display="block";const rect=anchor.getBoundingClientRect();const top=window.scrollY+rect.bottom+6;let left=window.scrollX+rect.left;const maxL=window.scrollX+document.documentElement.clientWidth-editor.offsetWidth-8;if(left>maxL)left=maxL;if(left<8)left=8;editor.style.top=top+"px";editor.style.left=left+"px";renderText();renderComments();editorNote.focus()}
+  function closeEditor(){discardPendingNew();editor.style.display="none";activeId=null;if(mode==="review"){renderText();renderComments()}}
+  function saveEditor(){const c=state.comments.find(x=>x.id===activeId);if(c){c.note=editorNote.value.trim();save()}pendingNewId=null;closeEditor()}
+  function deleteActive(){state.comments=state.comments.filter(x=>x.id!==activeId);if(pendingNewId===activeId)pendingNewId=null;save();closeEditor()}
+
+  function renderComments(){
+    const sorted=[...state.comments].sort((a,b)=>a.start-b.start);
+    commentsEl.innerHTML="";commentsEmpty.style.display=sorted.length?"none":"";
+    countEl.textContent=sorted.length+(sorted.length===1?" comment":" comments");
+    for(const c of sorted){
+      const li=document.createElement("li");if(c.id===activeId)li.classList.add("active");
+      const q=document.createElement("div");q.className="quote";q.textContent=c.quote;
+      const n=document.createElement("div");n.className="note";n.textContent=c.note;
+      li.appendChild(q);li.appendChild(n);
+      li.addEventListener("click",()=>{if(mode!=="review")setMode("review");const m=renderedEl.querySelector('mark[data-id="'+c.id+'"]');if(m){m.scrollIntoView({block:"center",behavior:"smooth"});openEditorFor(c.id,m)}});
+      commentsEl.appendChild(li);
+    }
+  }
+
+  function contextFor(start,end){
+    const t=state.text;
+    const ls=t.lastIndexOf("\n",start-1)+1;        // start of the selection's first line
+    let le=t.indexOf("\n",end);if(le===-1)le=t.length;
+    let sle=t.indexOf("\n",start);if(sle===-1)sle=t.length; // end of the start line
+    // Section = last header at or before the selection's own line, so selecting
+    // a header line attributes to that section (not the one above it).
+    const sec=(t.slice(0,sle).match(/^===\s*(.+?)\s*===\s*$/gm)||[]).pop();
+    const section=sec?sec.replace(/^===\s*|\s*===\s*$/g,""):"";
+    return {section, line:t.slice(ls,le).trim(), before:t.slice(Math.max(0,start-60),start), after:t.slice(end,end+60)};
+  }
+  function feedbackPayload(){
+    const sorted=[...state.comments].sort((a,b)=>a.start-b.start);
+    return {overall:overallEl.value.trim(), count:sorted.length,
+            comments:sorted.map(c=>{const x=contextFor(c.start,c.end);return {quote:c.quote, note:c.note||"", section:x.section, line:x.line, before:x.before, after:x.after};})};
+  }
+  function feedbackMarkdown(){
+    const p=feedbackPayload();const L=["## Feedback"];
+    if(p.overall)L.push("Overall: "+p.overall);L.push("");
+    if(!p.comments.length)L.push("_(no per-quote comments)_");
+    for(const c of p.comments){
+      if(c.section)L.push("**["+c.section+"]**");
+      if(c.line&&c.line!==c.quote)L.push("context: "+c.line);
+      L.push("> "+c.quote.replace(/\n/g,"\n> "));
+      L.push("— "+(c.note||"(no comment)"));L.push("");
+    }
+    return L.join("\n").trim()+"\n";
+  }
+
+  async function sendFeedback(){
+    try{
+      const res=await fetch("/feedback",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(feedbackPayload())});
+      if(res.ok)toast("Sent. Return to the assistant and tell it you're done.","ok");
+      else toast("Send failed — use Copy instead","err");
+    }catch(e){toast("Send failed (server down?) — use Copy instead","err")}
+  }
+  async function copyFeedback(){
+    const text=feedbackMarkdown();
+    try{await navigator.clipboard.writeText(text);toast("Copied to clipboard","ok")}
+    catch(e){const ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Copied to clipboard","ok")}catch(_){toast("Copy failed","err")}document.body.removeChild(ta)}
+  }
+
+  let toastTimer=null;
+  function toast(msg,cls){const t=$("toast");t.textContent=msg;t.className="toast show"+(cls?" "+cls:"");clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.className="toast",2400)}
+
+  async function init(){
+    let draft="";
+    try{const r=await fetch("/draft",{cache:"no-store"});draft=await r.text()}catch(e){draft=""}
+    state.text=draft;
+    storeKey=STORE_PREFIX+hash(draft);
+    loadComments();               // restores prior comments only if the draft hash matches
+    draftEl.value=draft;overallEl.value=state.overall;
+    renderComments();setMode("review");
+    overallEl.addEventListener("input",()=>{state.overall=overallEl.value;save()});
+    $("mode-edit").addEventListener("click",()=>setMode("edit"));
+    $("mode-review").addEventListener("click",()=>setMode("review"));
+    renderedEl.addEventListener("mouseup",onMouseUp);
+    $("editor-save").addEventListener("click",saveEditor);
+    $("editor-cancel").addEventListener("click",closeEditor);
+    $("editor-delete").addEventListener("click",deleteActive);
+    editorNote.addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();saveEditor()}if(e.key==="Escape"){e.preventDefault();closeEditor()}});
+    $("send").addEventListener("click",sendFeedback);
+    $("copy").addEventListener("click",copyFeedback);
+    $("clear").addEventListener("click",()=>{if(!confirm("Clear all comments?"))return;state.overall="";state.comments=[];save();overallEl.value="";renderComments();renderText()});
+    document.addEventListener("mousedown",e=>{if(editor.style.display==="block"&&!editor.contains(e.target)&&e.target.tagName!=="MARK")closeEditor()});
+  }
+  init();
+})();
+</script>
+</body>
+</html>

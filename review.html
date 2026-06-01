@@ -10,9 +10,6 @@
   body{margin:0;font:15px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
   header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5}
   header h1{font-size:15px;margin:0 8px 0 0;color:var(--accent);font-weight:700}
-  .seg{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
-  .seg button{border:0;background:var(--panel);padding:6px 14px;cursor:pointer;font:inherit;color:var(--muted)}
-  .seg button.active{background:var(--accent);color:#fff}
   .spacer{flex:1}
   .count{color:var(--muted);font-size:13px}
   button.btn{border:1px solid var(--border);background:var(--panel);border-radius:7px;padding:6px 14px;cursor:pointer;font:inherit;color:var(--ink)}
@@ -23,10 +20,11 @@
   @media (max-width:860px){main{grid-template-columns:1fr}}
   .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px}
   .panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 10px}
-  textarea#draft{width:100%;min-height:60vh;border:1px solid var(--border);border-radius:8px;padding:12px;font:14px/1.6 ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:var(--ink);resize:vertical}
   #rendered{white-space:pre-wrap;word-wrap:break-word;font:14px/1.7 ui-monospace,"SF Mono",Menlo,Consolas,monospace;min-height:60vh}
   #rendered mark{background:var(--mark);border-radius:3px;padding:0 1px;cursor:pointer}
-  #rendered mark.active{background:var(--mark-active)}
+  #rendered mark[data-depth="2"]{background:#ffe8a3}
+  #rendered mark[data-depth="3"]{background:#ffd43b}
+  #rendered mark.active{background:var(--mark-active);box-shadow:0 0 0 1px var(--accent)}
   .hint{color:var(--muted);font-size:13px;margin-bottom:10px}
   .overall textarea{width:100%;min-height:52px;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font:inherit;resize:vertical;margin-bottom:14px}
   ul#comments{list-style:none;margin:0;padding:0}
@@ -41,6 +39,13 @@
   #editor textarea{width:100%;min-height:70px;border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit;resize:vertical}
   #editor .row{display:flex;gap:8px;margin-top:8px}
   #editor .row .spacer{flex:1}
+  #picker{position:absolute;z-index:25;width:300px;background:var(--panel);border:1px solid var(--accent);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:6px;display:none}
+  #picker .picker-head{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:4px 8px 6px}
+  #picker .picker-item{padding:8px;border-radius:7px;cursor:pointer}
+  #picker .picker-item:hover{background:var(--bg)}
+  #picker .pq{font-size:12px;color:var(--muted);border-left:3px solid var(--mark-active);padding-left:8px;margin-bottom:4px;white-space:pre-wrap;max-height:48px;overflow:auto}
+  #picker .pn{white-space:pre-wrap}
+  #picker .pn:empty::before{content:"(no comment yet)";color:var(--muted);font-style:italic}
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--accent);color:#fff;padding:9px 16px;border-radius:8px;opacity:0;transition:all .18s ease;pointer-events:none;z-index:50}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .toast.ok{background:var(--ok)}
@@ -50,18 +55,16 @@
 <body>
 <header>
   <h1>Annotate It</h1>
-  <div class="seg"><button id="mode-edit">Edit draft</button><button id="mode-review" class="active">Review</button></div>
   <span class="count" id="count">0 comments</span>
   <span class="spacer"></span>
   <button class="btn primary" id="send">Send</button>
-  <button class="btn" id="copy">Copy</button>
+  <button class="btn" id="copy" title="Copies your comments as Markdown to paste into the chat if Send doesn't work.">Copy as Markdown</button>
   <button class="btn ghost-danger" id="clear">Clear comments</button>
 </header>
 <main>
   <section class="panel" id="left">
-    <h2 id="left-title">Review</h2>
-    <p class="hint" id="review-hint">Select any text to add a comment. Click a highlight to edit or delete it. When done, click <b>Send</b> and return to the assistant.</p>
-    <textarea id="draft" style="display:none"></textarea>
+    <h2>Review</h2>
+    <p class="hint" id="review-hint">Select any text to add a comment — selections may overlap or nest. Click a highlight to edit or delete it. When done, click <b>Send</b> and return to the assistant.</p>
     <div id="rendered"></div>
   </section>
   <aside class="panel">
@@ -76,17 +79,18 @@
   <textarea id="editor-note" placeholder="Your comment…"></textarea>
   <div class="row"><button class="btn ghost-danger" id="editor-delete">Delete</button><span class="spacer"></span><button class="btn" id="editor-cancel">Cancel</button><button class="btn primary" id="editor-save">Save</button></div>
 </div>
+<div id="picker"></div>
 <div class="toast" id="toast"></div>
 <script>
 "use strict";
 (function () {
   const STORE_PREFIX = "annotate-it:";
   const state = { text:"", overall:"", comments:[] };
-  let mode = "review", activeId = null, idSeq = 1, pendingNewId = null, storeKey = STORE_PREFIX + "default";
+  let activeId = null, idSeq = 1, pendingNewId = null, storeKey = STORE_PREFIX + "default";
   const $ = (id)=>document.getElementById(id);
-  const draftEl=$("draft"), renderedEl=$("rendered"), commentsEl=$("comments"), commentsEmpty=$("comments-empty"),
-        overallEl=$("overall"), countEl=$("count"), leftTitle=$("left-title"), reviewHint=$("review-hint"),
-        editor=$("editor"), editorQuote=$("editor-quote"), editorNote=$("editor-note");
+  const renderedEl=$("rendered"), commentsEl=$("comments"), commentsEmpty=$("comments-empty"),
+        overallEl=$("overall"), countEl=$("count"),
+        editor=$("editor"), editorQuote=$("editor-quote"), editorNote=$("editor-note"), picker=$("picker");
 
   // Storage is keyed by a hash of the draft, so a new draft auto-resets comments.
   function hash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0}return String(h)}
@@ -94,44 +98,66 @@
   function loadComments(){try{const r=localStorage.getItem(storeKey);if(!r)return;const d=JSON.parse(r);state.overall=d.overall||"";state.comments=Array.isArray(d.comments)?d.comments:[]}catch(e){}}
   function nextId(){const m=state.comments.reduce((a,c)=>Math.max(a,c.id||0),0);idSeq=Math.max(idSeq,m+1);return idSeq++}
 
-  function setMode(next){
-    if(next==="review")commitDraft();
-    mode=next;
-    $("mode-edit").classList.toggle("active",mode==="edit");
-    $("mode-review").classList.toggle("active",mode==="review");
-    draftEl.style.display=mode==="edit"?"":"none";
-    renderedEl.style.display=mode==="review"?"":"none";
-    reviewHint.style.display=mode==="review"?"":"none";
-    leftTitle.textContent=mode==="review"?"Review":"Draft";
-    if(mode==="review")renderText();
-    closeEditor();
-  }
-  function commitDraft(){const t=draftEl.value;if(t===state.text)return;state.text=t;storeKey=STORE_PREFIX+hash(t);state.comments=state.comments.filter(c=>state.text.slice(c.start,c.end)===c.quote);save()}
-
+  // Render with boundary segmentation so comments may overlap or nest: split the
+  // text at every comment start/end, then wrap each segment once and shade it by
+  // how many comments cover it (depth 1..3). A single linear pass can't wrap
+  // nested spans, which is why the old non-overlapping renderer needed a guard.
   function renderText(){
     renderedEl.innerHTML="";
-    const text=state.text, sorted=[...state.comments].sort((a,b)=>a.start-b.start);
-    let cur=0;
-    for(const c of sorted){
-      if(c.start>cur)renderedEl.appendChild(document.createTextNode(text.slice(cur,c.start)));
+    const text=state.text;
+    const points=new Set([0,text.length]);
+    for(const c of state.comments){points.add(c.start);points.add(c.end)}
+    const bounds=[...points].filter(p=>p>=0&&p<=text.length).sort((a,b)=>a-b);
+    for(let i=0;i<bounds.length-1;i++){
+      const s=bounds[i],e=bounds[i+1];if(e<=s)continue;
+      const seg=text.slice(s,e);
+      const covering=state.comments.filter(c=>c.start<=s&&c.end>=e);
+      if(!covering.length){renderedEl.appendChild(document.createTextNode(seg));continue}
       const m=document.createElement("mark");
-      m.textContent=text.slice(c.start,c.end);m.dataset.id=String(c.id);
-      if(c.id===activeId)m.classList.add("active");
-      m.addEventListener("click",e=>{e.stopPropagation();openEditorFor(c.id,m)});
-      renderedEl.appendChild(m);cur=c.end;
+      m.textContent=seg;
+      const ids=covering.map(c=>c.id);
+      m.dataset.ids=ids.join(",");
+      m.dataset.depth=String(Math.min(covering.length,3));
+      if(covering.some(c=>c.id===activeId))m.classList.add("active");
+      m.addEventListener("click",ev=>{ev.stopPropagation();onMarkClick(ids,m)});
+      renderedEl.appendChild(m);
     }
-    if(cur<text.length)renderedEl.appendChild(document.createTextNode(text.slice(cur)));
   }
-  function offsetOf(container,node,nodeOffset){let t=0;const w=document.createTreeWalker(container,NodeFilter.SHOW_TEXT,null);let n;while((n=w.nextNode())){if(n===node)return t+nodeOffset;t+=n.nodeValue.length}return t}
-  function getSelectionRange(){const s=window.getSelection();if(!s||s.rangeCount===0||s.isCollapsed)return null;const r=s.getRangeAt(0);if(!renderedEl.contains(r.startContainer)||!renderedEl.contains(r.endContainer))return null;let a=offsetOf(renderedEl,r.startContainer,r.startOffset),b=offsetOf(renderedEl,r.endContainer,r.endOffset);if(a>b)[a,b]=[b,a];if(a===b)return null;return{start:a,end:b}}
-  function overlaps(s,e,ex){return state.comments.some(c=>c.id!==ex&&s<c.end&&e>c.start)}
-  function onMouseUp(){if(mode!=="review")return;const r=getSelectionRange();if(!r)return;if(overlaps(r.start,r.end,null)){toast("Selection overlaps an existing comment");window.getSelection().removeAllRanges();return}const c={id:nextId(),start:r.start,end:r.end,quote:state.text.slice(r.start,r.end),note:""};state.comments.push(c);save();window.getSelection().removeAllRanges();renderText();renderComments();pendingNewId=c.id;openEditorFor(c.id,renderedEl.querySelector('mark[data-id="'+c.id+'"]'))}
+  // A comment can be split across several segment marks; return the first one.
+  function markForId(id){return [...renderedEl.querySelectorAll("mark")].find(m=>(m.dataset.ids||"").split(",").includes(String(id)))||null}
+  // Capture the click rect now: opening a popover re-renders the marks, which
+  // detaches the clicked element, so we position from coordinates, not the node.
+  function onMarkClick(ids,m){const rect=m.getBoundingClientRect();if(ids.length===1)openEditorFor(ids[0],rect);else openPicker(ids,rect)}
+
+  // Character offset of a (node, nodeOffset) DOM position within #rendered.
+  // Range.toString() handles element containers too, so a triple-click — whose
+  // selection ends on an element boundary, not a text node — maps correctly.
+  function offsetOf(node,nodeOffset){const r=document.createRange();r.setStart(renderedEl,0);r.setEnd(node,nodeOffset);return r.toString().length}
+  function getSelectionRange(){const s=window.getSelection();if(!s||s.rangeCount===0||s.isCollapsed)return null;const r=s.getRangeAt(0);if(!renderedEl.contains(r.startContainer)||!renderedEl.contains(r.endContainer))return null;let a=offsetOf(r.startContainer,r.startOffset),b=offsetOf(r.endContainer,r.endOffset);if(a>b)[a,b]=[b,a];if(a===b)return null;return{start:a,end:b}}
+  // Bound to document (not #rendered) so releasing the mouse just outside the
+  // text still completes the selection. Multi-click selections arrive as a rapid
+  // sequence of mouseups with rising e.detail (2 = word, 3 = line); debounce them
+  // so a triple-click yields one line comment instead of first committing the
+  // word from the double-click step. A drag is detail 1 and commits instantly.
+  let selectTimer=null;
+  function onMouseUp(e){
+    if(e&&e.detail>1){clearTimeout(selectTimer);selectTimer=setTimeout(commitSelection,250);return}
+    clearTimeout(selectTimer);commitSelection();
+  }
+  function commitSelection(){selectTimer=null;const r=getSelectionRange();if(!r)return;const c={id:nextId(),start:r.start,end:r.end,quote:state.text.slice(r.start,r.end),note:""};state.comments.push(c);save();window.getSelection().removeAllRanges();renderText();renderComments();pendingNewId=c.id;const m=markForId(c.id);openEditorFor(c.id,m?m.getBoundingClientRect():null)}
 
   function discardPendingNew(){if(pendingNewId==null)return;const c=state.comments.find(x=>x.id===pendingNewId);if(c&&!(c.note&&c.note.trim())){state.comments=state.comments.filter(x=>x.id!==pendingNewId);save()}pendingNewId=null}
-  function openEditorFor(id,anchor){if(pendingNewId!=null&&pendingNewId!==id)discardPendingNew();const c=state.comments.find(x=>x.id===id);if(!c)return;activeId=id;editorQuote.textContent=c.quote;editorNote.value=c.note;editor.style.display="block";const rect=anchor.getBoundingClientRect();const top=window.scrollY+rect.bottom+6;let left=window.scrollX+rect.left;const maxL=window.scrollX+document.documentElement.clientWidth-editor.offsetWidth-8;if(left>maxL)left=maxL;if(left<8)left=8;editor.style.top=top+"px";editor.style.left=left+"px";renderText();renderComments();editorNote.focus()}
-  function closeEditor(){discardPendingNew();editor.style.display="none";activeId=null;if(mode==="review"){renderText();renderComments()}}
+  // Position from a captured rect (viewport-relative), not a live element, so it
+  // survives the re-render that openEditorFor/openPicker trigger.
+  function positionPopover(el,rect){if(!rect)return;const top=window.scrollY+rect.bottom+6;let left=window.scrollX+rect.left;const maxL=window.scrollX+document.documentElement.clientWidth-el.offsetWidth-8;if(left>maxL)left=maxL;if(left<8)left=8;el.style.top=top+"px";el.style.left=left+"px"}
+  function openEditorFor(id,rect){closePicker();if(pendingNewId!=null&&pendingNewId!==id)discardPendingNew();const c=state.comments.find(x=>x.id===id);if(!c)return;activeId=id;editorQuote.textContent=c.quote;editorNote.value=c.note;editor.style.display="block";renderText();renderComments();positionPopover(editor,rect);editorNote.focus()}
+  function closeEditor(){discardPendingNew();editor.style.display="none";activeId=null;renderText();renderComments()}
   function saveEditor(){const c=state.comments.find(x=>x.id===activeId);if(c){c.note=editorNote.value.trim();save()}pendingNewId=null;closeEditor()}
   function deleteActive(){state.comments=state.comments.filter(x=>x.id!==activeId);if(pendingNewId===activeId)pendingNewId=null;save();closeEditor()}
+
+  // When a clicked segment is covered by several comments, let the user pick one.
+  function openPicker(ids,rect){closeEditor();picker.innerHTML="";const cs=ids.map(id=>state.comments.find(c=>c.id===id)).filter(Boolean);const head=document.createElement("div");head.className="picker-head";head.textContent="Which comment?";picker.appendChild(head);for(const c of cs){const item=document.createElement("div");item.className="picker-item";const q=document.createElement("div");q.className="pq";q.textContent=c.quote;const n=document.createElement("div");n.className="pn";n.textContent=c.note;item.appendChild(q);item.appendChild(n);item.addEventListener("click",ev=>{ev.stopPropagation();openEditorFor(c.id,rect)});picker.appendChild(item)}picker.style.display="block";positionPopover(picker,rect)}
+  function closePicker(){picker.style.display="none"}
 
   function renderComments(){
     const sorted=[...state.comments].sort((a,b)=>a.start-b.start);
@@ -142,7 +168,7 @@
       const q=document.createElement("div");q.className="quote";q.textContent=c.quote;
       const n=document.createElement("div");n.className="note";n.textContent=c.note;
       li.appendChild(q);li.appendChild(n);
-      li.addEventListener("click",()=>{if(mode!=="review")setMode("review");const m=renderedEl.querySelector('mark[data-id="'+c.id+'"]');if(m){m.scrollIntoView({block:"center",behavior:"smooth"});openEditorFor(c.id,m)}});
+      li.addEventListener("click",()=>{const m=markForId(c.id);if(m)m.scrollIntoView({block:"center",behavior:"smooth"});openEditorFor(c.id,m?m.getBoundingClientRect():null)});
       commentsEl.appendChild(li);
     }
   }
@@ -180,13 +206,13 @@
     try{
       const res=await fetch("/feedback",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(feedbackPayload())});
       if(res.ok)toast("Sent. Return to the assistant and tell it you're done.","ok");
-      else toast("Send failed — use Copy instead","err");
-    }catch(e){toast("Send failed (server down?) — use Copy instead","err")}
+      else toast("Send failed — use Copy as Markdown instead","err");
+    }catch(e){toast("Send failed (server down?) — use Copy as Markdown instead","err")}
   }
   async function copyFeedback(){
     const text=feedbackMarkdown();
-    try{await navigator.clipboard.writeText(text);toast("Copied to clipboard","ok")}
-    catch(e){const ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Copied to clipboard","ok")}catch(_){toast("Copy failed","err")}document.body.removeChild(ta)}
+    try{await navigator.clipboard.writeText(text);toast("Copied as Markdown","ok")}
+    catch(e){const ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Copied as Markdown","ok")}catch(_){toast("Copy failed","err")}document.body.removeChild(ta)}
   }
 
   let toastTimer=null;
@@ -198,12 +224,10 @@
     state.text=draft;
     storeKey=STORE_PREFIX+hash(draft);
     loadComments();               // restores prior comments only if the draft hash matches
-    draftEl.value=draft;overallEl.value=state.overall;
-    renderComments();setMode("review");
+    overallEl.value=state.overall;
+    renderText();renderComments();
     overallEl.addEventListener("input",()=>{state.overall=overallEl.value;save()});
-    $("mode-edit").addEventListener("click",()=>setMode("edit"));
-    $("mode-review").addEventListener("click",()=>setMode("review"));
-    renderedEl.addEventListener("mouseup",onMouseUp);
+    document.addEventListener("mouseup",onMouseUp);
     $("editor-save").addEventListener("click",saveEditor);
     $("editor-cancel").addEventListener("click",closeEditor);
     $("editor-delete").addEventListener("click",deleteActive);
@@ -211,7 +235,11 @@
     $("send").addEventListener("click",sendFeedback);
     $("copy").addEventListener("click",copyFeedback);
     $("clear").addEventListener("click",()=>{if(!confirm("Clear all comments?"))return;state.overall="";state.comments=[];save();overallEl.value="";renderComments();renderText()});
-    document.addEventListener("mousedown",e=>{if(editor.style.display==="block"&&!editor.contains(e.target)&&e.target.tagName!=="MARK")closeEditor()});
+    document.addEventListener("mousedown",e=>{
+      const onMark=e.target.tagName==="MARK";
+      if(editor.style.display==="block"&&!editor.contains(e.target)&&!onMark)closeEditor();
+      if(picker.style.display==="block"&&!picker.contains(e.target)&&!onMark)closePicker();
+    });
   }
   init();
 })();

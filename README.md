@@ -41,8 +41,10 @@ cp -r annotate-it ~/.claude/skills/
 The skill is self-driving once invoked; this is the loop it follows:
 
 1. Write the draft to `<workdir>/draft.txt` (any directory — `/tmp/review`, a
-   project subfolder, anywhere you can write). Optionally prefix logical sections
-   with `=== SECTION NAME ===` lines.
+   project subfolder, anywhere you can write). Section delimiters are optional:
+   prefix logical sections with `=== SECTION NAME ===` lines to tag each comment
+   with its section. Without them the draft is treated as one unsectioned block
+   and comments simply come back with no `section` label.
 2. Start the server in the background:
    ```bash
    node ~/.claude/skills/annotate-it/server.mjs --dir <workdir>
@@ -52,10 +54,8 @@ The skill is self-driving once invoked; this is the loop it follows:
 4. The agent reads the last line of `<workdir>/feedback.jsonl` and revises.
 5. New round: agent overwrites `draft.txt`, you refresh the page.
 
-### Hands-free resume
-
-After giving you the URL, the agent runs the waiter in the background and ends
-its turn:
+The resume is hands-free. After giving you the URL, the agent runs a waiter in
+the background and ends its turn:
 
 ```bash
 node ~/.claude/skills/annotate-it/wait-for-feedback.mjs --dir <workdir>
@@ -102,13 +102,6 @@ Each **Send** appends one JSON line to `feedback.jsonl`:
   changed draft starts clean automatically.
 - **Copy fallback.** If the live channel hiccups, a **Copy** button yields the
   same feedback as Markdown to paste into chat.
-
-## Why not a Claude `FileChanged` hook?
-
-Claude Code's `FileChanged` hook is async and fire-and-forget — it cannot wake or
-re-invoke the agent. The only mechanism that resumes an idle agent from an
-external event is a **background task that exits**, which is exactly what
-`wait-for-feedback.mjs` does.
 
 ## License
 

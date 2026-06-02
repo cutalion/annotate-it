@@ -9,7 +9,7 @@ doc, spec, marketing copy, config) and want to point at *exact phrases* — "thi
 word is wrong", "drop this bullet" — instead of retyping "change the second
 sentence of paragraph three".
 
-## How it looks
+## How it works
 
 - A two-pane local web page: the draft on the left, your comments on the right.
 - Select any span → a comment box pops up, tied to that exact quote.
@@ -19,6 +19,14 @@ sentence of paragraph three".
 
 Each comment arrives anchored with the **full line** it sits in and a
 **±60-char window**, so even a one-word selection is unambiguous.
+
+## Demo
+
+
+
+https://github.com/user-attachments/assets/9cb8102e-ccce-4d82-8e03-52b8eeaba38c
+
+
 
 ## Install
 

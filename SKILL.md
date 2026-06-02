@@ -21,7 +21,7 @@ Use this instead of asking the user to retype "change line 3, the second bullet 
 
 ## The Loop (hands-free)
 
-1. **Write the draft** to `<workdir>/draft.txt` (pick any workdir, e.g. a temp or project subdir). Plain text. Optional: prefix logical sections with `=== SECTION NAME ===` lines — these get attached to each comment as its `section`.
+1. **Write the draft** to `<workdir>/draft.txt` (pick any workdir, e.g. a temp or project subdir). Plain text — just drop in whatever you wrote; the file's own structure (headings, etc.) carries through as-is.
 2. **Start the server in the background** (it must survive across turns):
    ```bash
    node ~/.claude/skills/annotate-it/server.mjs --dir <workdir>
@@ -44,12 +44,12 @@ Each `Send` appends one JSON line to `feedback.jsonl`:
 ```json
 {"overall":"...","count":2,"comments":[
   {"quote":"selected text","note":"the user's comment",
-   "section":"KIDSOUT","line":"the whole line it sits in",
+   "line":"the whole line it sits in",
    "before":"~60 chars before","after":"~60 chars after"}
 ]}
 ```
 
-`section`/`line`/`before`/`after` disambiguate short selections — a one-word `quote` still arrives with its full line and section, so you always know which occurrence they meant.
+`line`/`before`/`after` disambiguate short selections — a one-word `quote` still arrives with its full line and a ±60-char window, so you always know which occurrence they meant.
 
 ## Quick Reference
 

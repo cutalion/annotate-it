@@ -17,8 +17,8 @@ sentence of paragraph three".
 - Click **Send** → your comments land back with the agent, **hands-free** (the
   agent wakes up on its own; you don't have to type anything in the terminal).
 
-Each comment arrives anchored with its **section**, the **full line** it sits in,
-and a **±60-char window**, so even a one-word selection is unambiguous.
+Each comment arrives anchored with the **full line** it sits in and a
+**±60-char window**, so even a one-word selection is unambiguous.
 
 ## Install
 
@@ -41,10 +41,8 @@ cp -r annotate-it ~/.claude/skills/
 The skill is self-driving once invoked; this is the loop it follows:
 
 1. Write the draft to `<workdir>/draft.txt` (any directory — `/tmp/review`, a
-   project subfolder, anywhere you can write). Section delimiters are optional:
-   prefix logical sections with `=== SECTION NAME ===` lines to tag each comment
-   with its section. Without them the draft is treated as one unsectioned block
-   and comments simply come back with no `section` label.
+   project subfolder, anywhere you can write). Plain text — the file's own
+   structure carries through as-is.
 2. Start the server in the background:
    ```bash
    node ~/.claude/skills/annotate-it/server.mjs --dir <workdir>
@@ -74,7 +72,7 @@ Each **Send** appends one JSON line to `feedback.jsonl`:
 ```json
 {"overall":"...","count":2,"comments":[
   {"quote":"selected text","note":"your comment",
-   "section":"SECTION NAME","line":"the whole line it sits in",
+   "line":"the whole line it sits in",
    "before":"~60 chars before","after":"~60 chars after"}
 ]}
 ```
@@ -96,8 +94,8 @@ Each **Send** appends one JSON line to `feedback.jsonl`:
   the poll covers filesystems where `fs.watch` silently misses events
   (some network/synced mounts).
 - **Position-anchored comments.** The page stores comments as `{start, end}`
-  offsets into the draft, so section/line/context are derived on demand — a
-  one-word highlight still comes back fully situated.
+  offsets into the draft, so line/context are derived on demand — a one-word
+  highlight still comes back fully situated.
 - **Storage keyed by draft hash.** Comments persist across a refresh, and a
   changed draft starts clean automatically.
 - **Copy fallback.** If the live channel hiccups, a **Copy** button yields the

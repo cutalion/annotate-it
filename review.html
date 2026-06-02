@@ -177,24 +177,18 @@
     const t=state.text;
     const ls=t.lastIndexOf("\n",start-1)+1;        // start of the selection's first line
     let le=t.indexOf("\n",end);if(le===-1)le=t.length;
-    let sle=t.indexOf("\n",start);if(sle===-1)sle=t.length; // end of the start line
-    // Section = last header at or before the selection's own line, so selecting
-    // a header line attributes to that section (not the one above it).
-    const sec=(t.slice(0,sle).match(/^===\s*(.+?)\s*===\s*$/gm)||[]).pop();
-    const section=sec?sec.replace(/^===\s*|\s*===\s*$/g,""):"";
-    return {section, line:t.slice(ls,le).trim(), before:t.slice(Math.max(0,start-60),start), after:t.slice(end,end+60)};
+    return {line:t.slice(ls,le).trim(), before:t.slice(Math.max(0,start-60),start), after:t.slice(end,end+60)};
   }
   function feedbackPayload(){
     const sorted=[...state.comments].sort((a,b)=>a.start-b.start);
     return {overall:overallEl.value.trim(), count:sorted.length,
-            comments:sorted.map(c=>{const x=contextFor(c.start,c.end);return {quote:c.quote, note:c.note||"", section:x.section, line:x.line, before:x.before, after:x.after};})};
+            comments:sorted.map(c=>{const x=contextFor(c.start,c.end);return {quote:c.quote, note:c.note||"", line:x.line, before:x.before, after:x.after};})};
   }
   function feedbackMarkdown(){
     const p=feedbackPayload();const L=["## Feedback"];
     if(p.overall)L.push("Overall: "+p.overall);L.push("");
     if(!p.comments.length)L.push("_(no per-quote comments)_");
     for(const c of p.comments){
-      if(c.section)L.push("**["+c.section+"]**");
       if(c.line&&c.line!==c.quote)L.push("context: "+c.line);
       L.push("> "+c.quote.replace(/\n/g,"\n> "));
       L.push("— "+(c.note||"(no comment)"));L.push("");

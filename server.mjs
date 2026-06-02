@@ -5,9 +5,10 @@
 // human's inline comments. No npm install, no WebSocket — just Node's http.
 //
 // Usage:
-//   node server.mjs [--port N] [--dir PATH]
+//   node server.mjs [--port N] [--dir PATH] [--idle MINUTES]
 //   --port  port to bind (default: 0 = pick a free one)
 //   --dir   working directory for draft + feedback (default: cwd)
+//   --idle  minutes of inactivity before self-exit (default: 60; 0 = never)
 //
 // Files in --dir:
 //   draft.txt        the text to review        (written by the agent)
@@ -32,13 +33,42 @@ const arg = (name, def) => {
 
 const port = parseInt(arg('--port', '0'), 10) || 0;
 const dir = path.resolve(arg('--dir', process.cwd()));
+const idleMin = parseFloat(arg('--idle', '60'));   // <= 0 disables the timeout
 const draftFile = path.join(dir, 'draft.txt');
 const feedbackFile = path.join(dir, 'feedback.jsonl');
+const infoFile = path.join(dir, 'server-info.json');
 const pageFile = path.join(here, 'review.html');
 
 fs.mkdirSync(dir, { recursive: true });
 
+// Graceful shutdown: drop the stale info file so a later run can't read a dead
+// URL, close the server, and exit. Used by signals and the idle timer alike.
+let stopping = false;
+function shutdown(reason, code = 0) {
+  if (stopping) return;
+  stopping = true;
+  try { fs.unlinkSync(infoFile); } catch {}
+  console.log(JSON.stringify({ type: 'server-stopped', reason }));
+  server.close(() => process.exit(code));
+  setTimeout(() => process.exit(code), 1000).unref(); // failsafe if a conn lingers
+}
+
+// Self-exit after a stretch of inactivity so a forgotten background server
+// doesn't linger. Re-armed on every request.
+const idleMs = idleMin > 0 ? idleMin * 60_000 : 0;
+let idleTimer = null;
+function touch() {
+  if (!idleMs) return;
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => shutdown('idle-timeout'), idleMs);
+  idleTimer.unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
 const server = http.createServer((req, res) => {
+  touch();
   // Serve the review page
   if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
@@ -80,6 +110,7 @@ server.on('error', (e) => {
 server.listen(port, '127.0.0.1', () => {
   const p = server.address().port;
   const info = { type: 'server-started', url: `http://localhost:${p}`, port: p, dir };
-  fs.writeFileSync(path.join(dir, 'server-info.json'), JSON.stringify(info) + '\n');
+  fs.writeFileSync(infoFile, JSON.stringify(info) + '\n');
   console.log(JSON.stringify(info));
+  touch(); // arm the idle timer from boot, even before the first request
 });

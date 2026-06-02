@@ -100,6 +100,9 @@ Each **Send** appends one JSON line to `feedback.jsonl`:
   changed draft starts clean automatically.
 - **Copy fallback.** If the live channel hiccups, a **Copy** button yields the
   same feedback as Markdown to paste into chat.
+- **Self-cleaning server.** Shuts down gracefully on `SIGTERM`/`SIGINT` and after
+  60 min idle (`--idle MINUTES`, `0` to disable), removing `server-info.json` so
+  a forgotten background server doesn't linger or leave a stale URL behind.
 
 ## License
 

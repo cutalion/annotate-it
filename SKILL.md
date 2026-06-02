@@ -60,7 +60,7 @@ Each `Send` appends one JSON line to `feedback.jsonl`:
 | Wait hands-free | start `wait-for-feedback.mjs --dir <workdir>` (background), end turn |
 | Read feedback | last line of `<workdir>/feedback.jsonl` |
 | New round | overwrite `draft.txt`, user refreshes, re-launch waiter |
-| Stop | kill the background server (and waiter, if running) |
+| Stop | kill the background server (and waiter, if running); it also self-exits after 60 min idle — tune with `--idle MINUTES`, `0` to disable |
 
 ## Common Mistakes
 
@@ -74,3 +74,4 @@ Each `Send` appends one JSON line to `feedback.jsonl`:
 
 - The user always has a **Copy** button as a fallback if the channel hiccups — it copies the same feedback as Markdown to paste into chat.
 - Comments persist in the browser's localStorage keyed by a hash of the draft, so a refresh mid-review won't lose work, and a changed draft starts clean.
+- The server shuts down cleanly on `SIGTERM`/`SIGINT` and after 60 min idle (`--idle MINUTES`): it removes `server-info.json` so a later run can't read a dead URL.

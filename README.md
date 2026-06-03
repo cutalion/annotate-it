@@ -94,24 +94,6 @@ Each **Send** appends one JSON line to `feedback.jsonl`:
 | `review.html` | The comment UI (inline highlights, context-anchored comments) |
 | `wait-for-feedback.mjs` | Background watcher; exits on a new submission to auto-resume the agent |
 
-## Design notes
-
-- **Dependency-free.** Node's built-in `http` only. No WebSocket (a single HTTP
-  `POST` per submission is all the live channel needs), no `npm install`.
-- **`fs.watch` + 1s poll fallback.** Watch gives near-instant local detection;
-  the poll covers filesystems where `fs.watch` silently misses events
-  (some network/synced mounts).
-- **Position-anchored comments.** The page stores comments as `{start, end}`
-  offsets into the draft, so line/context are derived on demand — a one-word
-  highlight still comes back fully situated.
-- **Storage keyed by draft hash.** Comments persist across a refresh, and a
-  changed draft starts clean automatically.
-- **Copy fallback.** If the live channel hiccups, a **Copy** button yields the
-  same feedback as Markdown to paste into chat.
-- **Self-cleaning server.** Shuts down gracefully on `SIGTERM`/`SIGINT` and after
-  60 min idle (`--idle MINUTES`, `0` to disable), removing `server-info.json` so
-  a forgotten background server doesn't linger or leave a stale URL behind.
-
 ## License
 
 MIT
